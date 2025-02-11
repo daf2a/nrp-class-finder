@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NRP Class Finder 
 
-## Getting Started
+A web application to find ITS classes by NRP for Informatics Departement. This tool helps you find all classes a student is enrolled in for the current semester.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Search classes by NRP (use scrapping, so its take a while)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## How to Use
+1. **Login and Get Your Session ID**
+    - Go to [MyITS Academic](https://akademik.its.ac.id/myitsauth.php) and login with your credentials.
+    - Press `F12` to open Developer Tools, go to the `Application` tab (Chrome) or `Storage` tab (Firefox), click on `Cookies` → `akademik.its.ac.id`, find `PHPSESSID`, and copy its value.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. **Using the Tool**
+   - Enter the NRP you want to search for
+   - Paste your `PHPSESSID` into the Session ID field
+   - Click "Search Classes"
+   - Wait for results to appear
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## Learn More
+## Technical Details
 
-To learn more about Next.js, take a look at the following resources:
+- Built with Next.js 14
+- Uses server-side API routes for searching
+- Supports semester 2 2024
+- Searches classes A-K, P, and T
+- Handles expired sessions automatically
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Important Notes
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Your session ID is only used to access MyITS Academic
+- Sessions expire after some time, you'll need to get a new one
+- This tool only shows current semester classes
 
-## Deploy on Vercel
+## Contributing
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Feel free to open issues or submit pull requests if you find any problems or have suggestions for improvements.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+
+MIT License - feel free to use and modify as needed.
