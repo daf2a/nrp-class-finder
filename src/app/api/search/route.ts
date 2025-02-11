@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { Participant, ClassResult } from '@/types';
 
@@ -17,6 +17,10 @@ const MK_ID_LIST = [
     "EF4701"
 ];
 
+// Tambahkan konstanta untuk timeout dan retry
+const REQUEST_TIMEOUT = 5000; // 5 detik
+const MAX_RETRIES = 2;
+
 async function getClassParticipants(mkId: string, mkKelas: string, phpSessionId: string): Promise<Participant[] | null> {
     const baseUrl = "https://akademik.its.ac.id/lv_peserta.php";
     const params = {
@@ -28,40 +32,50 @@ async function getClassParticipants(mkId: string, mkKelas: string, phpSessionId:
         mkThnKurikulum: "2023"
     };
 
-    try {
-        const response = await axios.get(baseUrl, {
-            params,
-            headers: {
-                Cookie: `PHPSESSID=${phpSessionId}`
-            }
-        });
+    let retries = 0;
+    while (retries <= MAX_RETRIES) {
+        try {
+            const response = await axios.get(baseUrl, {
+                params,
+                headers: {
+                    Cookie: `PHPSESSID=${phpSessionId}`
+                },
+                timeout: REQUEST_TIMEOUT
+            });
 
-        const $ = cheerio.load(response.data);
-        
-        // Get course name
-        const courseName = $('table').first().find('tr').eq(1).find('td.PageTitle').text().trim();
-        
-        // Get participants
-        const participants: Participant[] = [];
-        $('table.GridStyle tr').slice(1).each((_, row) => {
-            const cols = $(row).find('td');
-            if (cols.length >= 3) {
-                participants.push({
-                    nrp: $(cols[1]).text().trim(),
-                    name: $(cols[2]).text().trim(),
-                    course_name: courseName
-                });
-            }
-        });
+            const $ = cheerio.load(response.data);
+            
+            // Get course name
+            const courseName = $('table').first().find('tr').eq(1).find('td.PageTitle').text().trim();
+            
+            // Optimisasi parsing dengan map alih-alih each
+            const participants = $('table.GridStyle tr')
+                .slice(1)
+                .map((_, row) => {
+                    const cols = $(row).find('td');
+                    if (cols.length >= 3) {
+                        return {
+                            nrp: $(cols[1]).text().trim(),
+                            name: $(cols[2]).text().trim(),
+                            course_name: courseName
+                        };
+                    }
+                    return null;
+                })
+                .get()
+                .filter((p): p is Participant => p !== null);
 
-        return participants;
-    } catch (err) {
-        const errorMessage = err instanceof AxiosError 
-            ? err.response?.data || err.message
-            : 'Unknown error';
-        console.error(`Error fetching class ${mkId}-${mkKelas}:`, errorMessage);
-        return null;
+            return participants;
+        } catch (error) {
+            retries++;
+            if (retries > MAX_RETRIES) {
+                console.error(`Failed after ${MAX_RETRIES} retries for ${mkId}-${mkKelas}: ${error}`);
+                return null;
+            }
+            await new Promise(resolve => setTimeout(resolve, 1000 * retries)); // Exponential backoff
+        }
     }
+    return null;
 }
 
 async function checkSession(sessionId: string): Promise<boolean> {
@@ -82,25 +96,31 @@ async function searchBatch(
   sessionId: string
 ): Promise<ClassResult[]> {
   const foundClasses: ClassResult[] = [];
-  const promises = mkIds.map(async (mkId) => {
-    for (const kelas of classes) {
+  
+  for (const mkId of mkIds) {
+    const classPromises = classes.map(async (kelas) => {
       const participants = await getClassParticipants(mkId, kelas, sessionId);
       if (participants) {
         const found = participants.find(p => p.nrp === nrp);
         if (found) {
-          foundClasses.push({
+          return {
             mk_id: mkId,
             semester: 2,
             kelas,
             name: found.name,
             course_name: found.course_name
-          });
+          };
         }
       }
-    }
-  });
+      return null;
+    });
 
-  await Promise.all(promises);
+    const results = await Promise.all(classPromises);
+    const validResults = results.filter((result): result is ClassResult => result !== null);
+    foundClasses.push(...validResults);
+    // Menghapus early return di sini
+  }
+  
   return foundClasses;
 }
 
@@ -119,22 +139,21 @@ export async function POST(request: Request) {
             }, { status: 401 });
         }
 
-        // Split MK_ID_LIST into smaller chunks
-        const chunkSize = 5;
+        // Kurangi ukuran chunk untuk mengurangi beban concurrent requests
+        const chunkSize = 3;
         const mkIdChunks = Array.from(
             { length: Math.ceil(MK_ID_LIST.length / chunkSize) },
             (_, i) => MK_ID_LIST.slice(i * chunkSize, (i + 1) * chunkSize)
         );
 
-        let allResults: ClassResult[] = [];
+        const allResults: ClassResult[] = [];
 
-        // Process chunks concurrently
-        const promises = mkIdChunks.map(chunk => 
-            searchBatch(chunk, ALLOWED_CLASSES, nrp, sessionId)
-        );
-
-        const results = await Promise.all(promises);
-        allResults = results.flat();
+        // Proses chunk secara sequential untuk mengurangi beban
+        for (const chunk of mkIdChunks) {
+            const results = await searchBatch(chunk, ALLOWED_CLASSES, nrp, sessionId);
+            allResults.push(...results);
+            // Menghapus early return di sini
+        }
 
         return new NextResponse(
             JSON.stringify({ results: allResults }), 
