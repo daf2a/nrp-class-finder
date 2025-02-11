@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ClassResult } from '@/types';
 
 export default function Home() {
@@ -7,26 +7,39 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<ClassResult[]>([]);
   const [error, setError] = useState('');
-  const [showSessionInput, setShowSessionInput] = useState(false);
   const [sessionId, setSessionId] = useState('');
 
-  const getCookieInstructions = () => (
-    <div className="mt-4 p-4 bg-blue-50 rounded-lg text-blue-800 border border-blue-200">
-      <p className="font-medium">How to get your session ID:</p>
-      <ol className="list-decimal ml-5 mt-2 space-y-1 text-sm">
-        <li>Login to <a href="https://akademik.its.ac.id/myitsauth.php" target="_blank" rel="noopener noreferrer" className="underline">MyITS Academic</a></li>
-        <li>After login, press F12 to open Developer Tools</li>
-        <li>Go to Application tab (Chrome) or Storage tab (Firefox)</li>
-        <li>Look for Cookies → akademik.its.ac.id</li>
-        <li>Find and copy the PHPSESSID value</li>
-      </ol>
-    </div>
-  );
+  // Add cleanup on unmount
+  useEffect(() => {
+    return () => {
+      fetch('/api/auth/cleanup', { method: 'POST' });
+    };
+  }, []);
+
+  const handleLogin = async () => {
+    try {
+      const response = await fetch('/api/auth');
+      const data = await response.json();
+      if (data.sessionId) {
+        setSessionId(data.sessionId);
+        setError('');
+      } else {
+        throw new Error('Failed to get session');
+      }
+    } catch (error) {
+      setError('Failed to authenticate. Please try again.');
+    }
+  };
 
   const handleSearch = async () => {
     if (!nrp) {
       setError('Please enter an NRP');
       return;
+    }
+
+    if (!sessionId) {
+      await handleLogin();
+      if (!sessionId) return;
     }
     
     setIsLoading(true);
@@ -39,16 +52,13 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          nrp,
-          sessionId: sessionId || undefined 
-        }),
+        body: JSON.stringify({ nrp, sessionId }),
       });
 
       const data = await response.json();
       if (!response.ok) {
         if (data.requireLogin) {
-          setShowSessionInput(true);
+          await handleLogin();
         }
         throw new Error(data.error || 'Failed to search');
       }
@@ -67,18 +77,6 @@ export default function Home() {
         <div className="text-center space-y-4">
           <h1 className="text-3xl font-bold text-gray-900">NRP Class Finder</h1>
           <p className="text-gray-600">Find classes by NRP</p>
-          
-          <div className="p-4 bg-yellow-50 rounded-lg text-yellow-800 border border-yellow-200">
-            <p>Please login to MyITS first:</p>
-            <a
-              href="https://akademik.its.ac.id/myitsauth.php"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:underline"
-            >
-              Login to MyITS →
-            </a>
-          </div>
         </div>
 
         <div className="space-y-4">
@@ -93,26 +91,12 @@ export default function Home() {
             />
           </div>
 
-          {showSessionInput && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Session ID (PHPSESSID)</label>
-              <input
-                type="text"
-                value={sessionId}
-                onChange={(e) => setSessionId(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded bg-white text-gray-900"
-                placeholder="Enter your PHPSESSID value"
-              />
-              {getCookieInstructions()}
-            </div>
-          )}
-
           <button
             onClick={handleSearch}
             disabled={isLoading}
             className="w-full py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
           >
-            {isLoading ? 'Searching all classes...' : 'Search Classes'}
+            {isLoading ? 'Searching...' : 'Search Classes'}
           </button>
         </div>
 

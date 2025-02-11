@@ -59,18 +59,36 @@ async function getClassParticipants(mkId: string, mkKelas: string, phpSessionId:
     }
 }
 
-async function checkSession(phpSessionId: string): Promise<boolean> {
+async function checkSession(phpSessionId: string): Promise<{ valid: boolean; error?: string }> {
     try {
         const response = await axios.get('https://akademik.its.ac.id/home.php', {
             headers: {
                 Cookie: `PHPSESSID=${phpSessionId}`
             }
         });
-        return !response.data.includes('myitsauth.php');
+
+        if (response.data.includes('myitsauth.php')) {
+            return { 
+                valid: false, 
+                error: 'Session expired. Please login to MyITS again.' 
+            };
+        }
+
+        // Check if we're actually logged in by looking for common elements
+        if (!response.data.includes('Logout')) {
+            return { 
+                valid: false, 
+                error: 'Invalid session. Please make sure you are logged in to MyITS.' 
+            };
+        }
+
+        return { valid: true };
     } catch (err) {
         const error = err as Error | AxiosError;
-        console.error('Session check error:', error.message);
-        return false;
+        return { 
+            valid: false, 
+            error: `Connection error: ${error.message}. Please check your MyITS connection.`
+        };
     }
 }
 
@@ -80,17 +98,24 @@ export async function POST(request: Request) {
         const { nrp, sessionId } = body;
 
         if (!nrp) {
-            return NextResponse.json({ error: 'NRP is required' }, { status: 400 });
+            return NextResponse.json({ 
+                error: 'NRP is required',
+                requireLogin: false 
+            }, { status: 400 });
         }
 
-        // Use provided session ID or fallback to hardcoded one
-        const phpSessionId = sessionId || 'h01m0cj1d3jkse862gmv2l5pt6';
-
-        // Verify if session is valid
-        const isValidSession = await checkSession(phpSessionId);
-        if (!isValidSession) {
+        if (!sessionId) {
             return NextResponse.json({ 
-                error: 'Invalid or expired session. Please login to MyITS again.',
+                error: 'Session ID is required. Please provide your MyITS session ID.',
+                requireLogin: true 
+            }, { status: 401 });
+        }
+
+        // Verify session with detailed error messages
+        const sessionCheck = await checkSession(sessionId);
+        if (!sessionCheck.valid) {
+            return NextResponse.json({ 
+                error: sessionCheck.error || 'Invalid session',
                 requireLogin: true 
             }, { status: 401 });
         }
@@ -100,7 +125,7 @@ export async function POST(request: Request) {
         // Search through all course IDs and allowed classes
         for (const mkId of MK_ID_LIST) {
             for (const kelas of ALLOWED_CLASSES) {
-                const participants = await getClassParticipants(mkId, kelas, phpSessionId);
+                const participants = await getClassParticipants(mkId, kelas, sessionId);
                 
                 if (participants) {
                     const found = participants.find(p => p.nrp === nrp);
