@@ -59,64 +59,32 @@ async function getClassParticipants(mkId: string, mkKelas: string, phpSessionId:
     }
 }
 
-async function checkSession(phpSessionId: string): Promise<{ valid: boolean; error?: string }> {
-    try {
-        const response = await axios.get('https://akademik.its.ac.id/home.php', {
-            headers: {
-                Cookie: `PHPSESSID=${phpSessionId}`
-            }
-        });
-
-        if (response.data.includes('myitsauth.php')) {
-            return { 
-                valid: false, 
-                error: 'Session expired. Please login to MyITS again.' 
-            };
-        }
-
-        // Check if we're actually logged in by looking for common elements
-        if (!response.data.includes('Logout')) {
-            return { 
-                valid: false, 
-                error: 'Invalid session. Please make sure you are logged in to MyITS.' 
-            };
-        }
-
-        return { valid: true };
-    } catch (err) {
-        const error = err as Error | AxiosError;
-        return { 
-            valid: false, 
-            error: `Connection error: ${error.message}. Please check your MyITS connection.`
-        };
-    }
+async function checkSession(sessionId: string): Promise<boolean> {
+  try {
+    const response = await axios.get('https://akademik.its.ac.id/home.php', {
+      headers: { Cookie: `PHPSESSID=${sessionId}` }
+    });
+    return !response.data.includes('myitsauth.php');
+  } catch {
+    return false;
+  }
 }
 
 export async function POST(request: Request) {
     try {
-        const body = await request.json();
-        const { nrp, sessionId } = body;
+        const { nrp, sessionId } = await request.json();
 
-        if (!nrp) {
+        if (!nrp || !sessionId) {
             return NextResponse.json({ 
-                error: 'NRP is required',
-                requireLogin: false 
+                error: 'NRP and Session ID are required'
             }, { status: 400 });
         }
 
-        if (!sessionId) {
+        // Verify session
+        const isValidSession = await checkSession(sessionId);
+        if (!isValidSession) {
             return NextResponse.json({ 
-                error: 'Session ID is required. Please provide your MyITS session ID.',
-                requireLogin: true 
-            }, { status: 401 });
-        }
-
-        // Verify session with detailed error messages
-        const sessionCheck = await checkSession(sessionId);
-        if (!sessionCheck.valid) {
-            return NextResponse.json({ 
-                error: sessionCheck.error || 'Invalid session',
-                requireLogin: true 
+                error: 'Invalid or expired session. Please get a new session ID.'
             }, { status: 401 });
         }
 
@@ -149,7 +117,7 @@ export async function POST(request: Request) {
     } catch (error: unknown) {
         console.error('Search error:', error);
         return NextResponse.json(
-            { error: error instanceof Error ? error.message : 'Failed to search classes' },
+            { error: 'Failed to search classes. Please check your session ID.' },
             { status: 500 }
         );
     }

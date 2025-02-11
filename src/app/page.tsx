@@ -1,46 +1,30 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ClassResult } from '@/types';
 
 export default function Home() {
   const [nrp, setNrp] = useState('');
+  const [sessionId, setSessionId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<ClassResult[]>([]);
   const [error, setError] = useState('');
-  const [sessionId, setSessionId] = useState('');
 
-  // Add cleanup on unmount
-  useEffect(() => {
-    return () => {
-      fetch('/api/auth/cleanup', { method: 'POST' });
-    };
-  }, []);
-
-  const handleLogin = async () => {
-    try {
-      const response = await fetch('/api/auth');
-      const data = await response.json();
-      if (data.sessionId) {
-        setSessionId(data.sessionId);
-        setError('');
-      } else {
-        throw new Error('Failed to get session');
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to authenticate';
-      setError(`Authentication failed: ${errorMessage}`);
-    }
-  };
+  const SessionInstructions = () => (
+    <div className="mt-4 p-4 bg-blue-50 rounded-lg text-blue-800 border border-blue-200">
+      <p className="font-medium">How to get your session ID:</p>
+      <ol className="list-decimal ml-5 mt-2 space-y-1 text-sm">
+        <li>Login to <a href="https://akademik.its.ac.id/home.php" target="_blank" rel="noopener noreferrer" className="underline">MyITS Home</a></li>
+        <li>Press F12 to open Developer Tools</li>
+        <li>Go to Application → Cookies → akademik.its.ac.id</li>
+        <li>Find <code className="bg-blue-100 px-1">PHPSESSID</code> and copy its value to the input above</li>
+      </ol>
+    </div>
+  );
 
   const handleSearch = async () => {
-    if (!nrp) {
-      setError('Please enter an NRP');
+    if (!nrp || !sessionId) {
+      setError('Please enter both NRP and Session ID');
       return;
-    }
-
-    if (!sessionId) {
-      await handleLogin();
-      if (!sessionId) return;
     }
     
     setIsLoading(true);
@@ -50,17 +34,12 @@ export default function Home() {
     try {
       const response = await fetch('/api/search', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nrp, sessionId }),
       });
 
       const data = await response.json();
       if (!response.ok) {
-        if (data.requireLogin) {
-          await handleLogin();
-        }
         throw new Error(data.error || 'Failed to search');
       }
 
@@ -90,6 +69,18 @@ export default function Home() {
               className="w-full p-2 border border-gray-300 rounded bg-white text-gray-900"
               placeholder="Enter NRP (e.g., 5025211015)"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Session ID</label>
+            <input
+              type="text"
+              value={sessionId}
+              onChange={(e) => setSessionId(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded font-mono bg-white text-gray-900"
+              placeholder="Enter your PHPSESSID"
+            />
+            <SessionInstructions />
           </div>
 
           <button
