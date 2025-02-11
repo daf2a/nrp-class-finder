@@ -73,7 +73,9 @@ export async function verifySession(sessionId: string): Promise<boolean> {
         
         await page.close();
         return !content.includes('myitsauth.php');
-    } catch (error) {
+    } catch (err) {
+        const error = err as Error;
+        console.error('Session verification error:', error.message);
         await page.close();
         return false;
     }

@@ -26,8 +26,9 @@ export default function Home() {
       } else {
         throw new Error('Failed to get session');
       }
-    } catch (error) {
-      setError('Failed to authenticate. Please try again.');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to authenticate';
+      setError(`Authentication failed: ${errorMessage}`);
     }
   };
 
