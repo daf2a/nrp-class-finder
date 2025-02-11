@@ -17,17 +17,16 @@ const MK_ID_LIST = [
     "EF4701"
 ];
 
-// Ubah konstanta timeout dan retry
-const REQUEST_TIMEOUT = 10000; // Naikkan menjadi 10 detik
-const MAX_RETRIES = 3; // Naikkan retry
-const RETRY_DELAY = 2000; // Delay antar retry 2 detik
+const REQUEST_TIMEOUT = 10000;
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 2000;
 
 async function getClassParticipants(mkId: string, mkKelas: string, phpSessionId: string): Promise<Participant[] | null> {
     const baseUrl = "https://akademik.its.ac.id/lv_peserta.php";
     const params = {
         mkJur: "51100",
         mkID: mkId,
-        mkSem: "2", // Fixed to semester 2
+        mkSem: "2",
         mkThn: "2024",
         mkKelas: mkKelas,
         mkThnKurikulum: "2023"
@@ -36,9 +35,6 @@ async function getClassParticipants(mkId: string, mkKelas: string, phpSessionId:
     let retries = 0;
     while (retries <= MAX_RETRIES) {
         try {
-            console.log(`Attempting request for ${mkId}-${mkKelas} (attempt ${retries + 1}/${MAX_RETRIES + 1})`);
-            console.log(`Session id ${phpSessionId}`);
-            
             const response = await axios.get(baseUrl, {
                 params,
                 headers: {
@@ -53,37 +49,20 @@ async function getClassParticipants(mkId: string, mkKelas: string, phpSessionId:
                 validateStatus: (status) => status === 200
             });
 
-            // Debug response
-            console.log(`Response status for ${mkId}-${mkKelas}:`, response.status);
-            console.log(`Response headers for ${mkId}-${mkKelas}:`, response.headers);
-            
-            // Validasi response
             if (!response.data || typeof response.data !== 'string') {
-                console.error(`Invalid response data type for ${mkId}-${mkKelas}:`, typeof response.data);
                 throw new Error('Invalid response data');
             }
 
             const $ = cheerio.load(response.data);
-            
-            // Debug HTML structure
-            console.log(`HTML structure for ${mkId}-${mkKelas}:`, {
-                tables: $('table').length,
-                gridStyleTables: $('table.GridStyle').length,
-                firstTableRows: $('table').first().find('tr').length
-            });
 
-            // Coba cari table dengan pendekatan berbeda
             let table = $('table.GridStyle');
             if (table.length === 0) {
-                // Fallback: cari table kedua (biasanya table peserta)
                 table = $('table').eq(1);
                 if (table.length === 0) {
-                    console.error(`Table structure for ${mkId}-${mkKelas}:`, $.html());
                     throw new Error('Table not found in response');
                 }
             }
 
-            // Coba dapatkan course name dengan beberapa pendekatan
             let courseName = '';
             const possibleCourseNameSelectors = [
                 'td.PageTitle',
@@ -97,10 +76,9 @@ async function getClassParticipants(mkId: string, mkKelas: string, phpSessionId:
             }
 
             if (!courseName) {
-                courseName = `${mkId}-${mkKelas}`; // Fallback course name
+                courseName = `${mkId}-${mkKelas}`;
             }
 
-            // Parse participants dengan error handling lebih baik
             const participants = table.find('tr')
                 .slice(1)
                 .map((_, row) => {
@@ -117,29 +95,26 @@ async function getClassParticipants(mkId: string, mkKelas: string, phpSessionId:
                                 course_name: courseName
                             };
                         }
-                    } catch (e) {
-                        console.error(`Error parsing row for ${mkId}-${mkKelas}:`, e);
+                    } catch (error) {
+                        console.error(`Error parsing row: ${error}`);
+                        return null;
                     }
                     return null;
                 })
                 .get()
                 .filter((p): p is Participant => p !== null);
 
-            console.log(`Successfully fetched ${participants.length} participants for ${mkId}-${mkKelas}`);
             return participants;
 
         } catch (error) {
             retries++;
-            console.error(`Failed attempt ${retries} for ${mkId}-${mkKelas}:`, error);
+            console.error(`Request failed: ${error}`);
             
             if (retries > MAX_RETRIES) {
-                console.error(`All attempts failed for ${mkId}-${mkKelas}`);
                 return null;
             }
 
-            // Exponential backoff with jitter
             const delay = RETRY_DELAY * Math.pow(2, retries - 1) * (0.5 + Math.random() * 0.5);
-            console.log(`Waiting ${Math.round(delay)}ms before next attempt...`);
             await new Promise(resolve => setTimeout(resolve, delay));
         }
     }
@@ -147,51 +122,48 @@ async function getClassParticipants(mkId: string, mkKelas: string, phpSessionId:
 }
 
 async function checkSession(sessionId: string): Promise<boolean> {
-  try {
-    const response = await axios.get('https://akademik.its.ac.id/home.php', {
-      headers: { Cookie: `PHPSESSID=${sessionId}` }
-    });
-    return !response.data.includes('myitsauth.php');
-  } catch {
-    return false;
-  }
+    try {
+        const response = await axios.get('https://akademik.its.ac.id/home.php', {
+            headers: { Cookie: `PHPSESSID=${sessionId}` }
+        });
+        return !response.data.includes('myitsauth.php');
+    } catch {
+        return false;
+    }
 }
 
 async function searchBatch(
-  mkIds: string[], 
-  classes: string[], 
-  nrp: string, 
-  sessionId: string
+    mkIds: string[], 
+    classes: string[], 
+    nrp: string, 
+    sessionId: string
 ): Promise<ClassResult[]> {
-  const foundClasses: ClassResult[] = [];
-  
-  for (const mkId of mkIds) {
-    console.log(`🔍 Searching in course ${mkId}...`);
-    const classPromises = classes.map(async (kelas) => {
-      const participants = await getClassParticipants(mkId, kelas, sessionId);
-      console.log(`Participants for ${mkId}-${kelas}:`, participants);
-      if (participants) {
-        const found = participants.find(p => p.nrp === nrp);
-        if (found) {
-          console.log(`✅ Found ${nrp} in class ${mkId}-${kelas}: ${found.course_name}`);
-          return {
-            mk_id: mkId,
-            semester: 2,
-            kelas,
-            name: found.name,
-            course_name: found.course_name
-          };
-        }
-      }
-      return null;
-    });
+    const foundClasses: ClassResult[] = [];
+    
+    for (const mkId of mkIds) {
+        const classPromises = classes.map(async (kelas) => {
+            const participants = await getClassParticipants(mkId, kelas, sessionId);
+            if (participants) {
+                const found = participants.find(p => p.nrp === nrp);
+                if (found) {
+                    return {
+                        mk_id: mkId,
+                        semester: 2,
+                        kelas,
+                        name: found.name,
+                        course_name: found.course_name
+                    };
+                }
+            }
+            return null;
+        });
 
-    const results = await Promise.all(classPromises);
-    const validResults = results.filter((result): result is ClassResult => result !== null);
-    foundClasses.push(...validResults);
-  }
-  
-  return foundClasses;
+        const results = await Promise.all(classPromises);
+        const validResults = results.filter((result): result is ClassResult => result !== null);
+        foundClasses.push(...validResults);
+    }
+    
+    return foundClasses;
 }
 
 export async function POST(request: Request) {
@@ -209,28 +181,19 @@ export async function POST(request: Request) {
             }, { status: 401 });
         }
 
-        // Kurangi ukuran chunk untuk mengurangi beban concurrent requests
         const chunkSize = 3;
         const mkIdChunks = Array.from(
             { length: Math.ceil(MK_ID_LIST.length / chunkSize) },
             (_, i) => MK_ID_LIST.slice(i * chunkSize, (i + 1) * chunkSize)
         );
 
-        console.log(`🚀 Starting search for NRP: ${nrp}`);
         const allResults: ClassResult[] = [];
 
-        let processedChunks = 0;
-        const totalChunks = mkIdChunks.length;
-
         for (const chunk of mkIdChunks) {
-            processedChunks++;
-            console.log(`⏳ Processing chunk ${processedChunks}/${totalChunks} (${chunk.join(', ')})`);
-            
             const results = await searchBatch(chunk, ALLOWED_CLASSES, nrp, sessionId);
             allResults.push(...results);
         }
 
-        console.log(`✨ Search completed. Found ${allResults.length} class(es)`);
         return new NextResponse(
             JSON.stringify({ results: allResults }), 
             { 

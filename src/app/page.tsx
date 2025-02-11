@@ -8,6 +8,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<ClassResult[]>([]);
   const [error, setError] = useState('');
+  const [studentName, setStudentName] = useState(''); // tambahkan state untuk nama
 
   const SessionInstructions = () => (
     <div className="mt-4 p-4 bg-blue-50 rounded-lg text-blue-800 border border-blue-200">
@@ -53,6 +54,10 @@ export default function Home() {
 
       const data = await response.json();
       setResults(data.results);
+      // Set nama mahasiswa dari hasil pertama yang ditemukan
+      if (data.results.length > 0) {
+        setStudentName(data.results[0].name);
+      }
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') {
         setError('Search took too long. Please try again.');
@@ -129,7 +134,7 @@ export default function Home() {
         {results.length > 0 && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-gray-900">
-              Found {results.length} classes:
+              {studentName} enrolled {results.length} classes:
             </h2>
             <div className="space-y-2">
               {results.map((result, index) => (

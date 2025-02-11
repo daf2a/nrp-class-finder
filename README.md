@@ -1,41 +1,57 @@
 # NRP Class Finder 
 
-A web application to find ITS classes by NRP for Informatics Departement. This tool helps you find all classes a student is enrolled in for the current semester.
+Web untuk mencari kelas mahasiswa ITS Informatika berdasarkan NRP. Aplikasi ini membantu menemukan semua kelas yang diambil oleh seorang mahasiswa berdasarkan NRP di semester ini.
 
-## Features
+> ⚠️ **Notes**: 
+> web ini hanya bisa dijalankan secara lokal, karena MyITS Academic membatasi akses berdasarkan IP address, sehingga session ID tidak akan berfungsi jika diakses dari server Vercel. Kalau ada yang tau cara bypass ini, silakan buat pull request.
 
-- Search classes by NRP (use scrapping, so its take a while)
+## Preview
 
-## How to Use
-1. **Login and Get Your Session ID**
-    - Go to [MyITS Academic](https://akademik.its.ac.id/myitsauth.php) and login with your credentials.
-    - Press `F12` to open Developer Tools, go to the `Application` tab (Chrome) or `Storage` tab (Firefox), click on `Cookies` → `akademik.its.ac.id`, find `PHPSESSID`, and copy its value.
+### Search Page
+![Search Page](./public/search.png)
 
-3. **Using the Tool**
-   - Enter the NRP you want to search for
-   - Paste your `PHPSESSID` into the Session ID field
-   - Click "Search Classes"
-   - Wait for results to appear (take a while)
+### Result Page
+![Result Page](./public/result.png)
 
 
-## Technical Details
+## Fitur
 
-- Built with Next.js 14
-- Uses server-side API routes for searching
-- Supports semester 2 2024
-- Searches classes A-K, P, and T
-- Handles expired sessions automatically
+- Pencarian kelas berdasarkan NRP (menggunakan web scraping, butuh waktu beberapa saat)
 
-## Important Notes
+## Cara Menjalankan di Komputer Lokal
 
-- Your session ID is only used to access MyITS Academic
-- Sessions expire after some time, you'll need to get a new one
-- This tool only shows current semester classes
+1. **Persiapan Awal**
+    - Download repositori: `git clone https://github.com/daf2a/nrp-class-finder.git`
+    - Masuk ke folder project: `cd nrp-class-finder`
+    - Install semua yang dibutuhkan: `npm install` (jika ada error, gunakan `npm install --legacy-peer-deps`)
 
-## Contributing
+2. **Menjalankan Aplikasi**
+    - Ketik `npm run dev` di terminal
+    - Buka `http://localhost:3000` di browser
 
-Feel free to open issues or submit pull requests if you find any problems or have suggestions for improvements.
+3. **Cara Mendapatkan Session ID**
+    - Login dulu ke [MyITS Academic](https://akademik.its.ac.id/home.php)
+    - Tekan `F12` di keyboard untuk buka Developer Tools
+    - Di Chrome: buka tab `Application` → `Cookies` → `akademik.its.ac.id`
+    - Di Firefox: buka tab `Storage` → `Cookies` → `akademik.its.ac.id`
+    - Cari `PHPSESSID` dan salin nilainya
 
-## License
+4. **Cara Menggunakan**
+   - Masukkan NRP yang ingin dicari
+   - Tempelkan Session ID yang sudah disalin
+   - Klik tombol "Search Classes" dan tunggu hasilnya
 
-MIT License - feel free to use and modify as needed.
+## Catatan Penting
+
+- Session ID hanya dipakai untuk mengakses MyITS Academic
+- Session akan kadaluarsa setelah beberapa waktu
+- Jika session kadaluarsa, Anda perlu login ulang dan ambil session ID baru
+- Hanya menampilkan kelas di semester yang sedang berjalan
+
+## Kontribusi
+
+Silakan buat issue atau pull request jika menemukan masalah atau punya saran pengembangan.
+
+## Lisensi
+
+MIT License - bebas digunakan dan dimodifikasi sesuai kebutuhan.
