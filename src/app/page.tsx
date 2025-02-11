@@ -1,10 +1,11 @@
 'use client';
 import { useState } from 'react';
+import { ClassResult } from '@/types';
 
 export default function Home() {
   const [nrp, setNrp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<ClassResult[]>([]);
   const [error, setError] = useState('');
 
   const handleSearch = async () => {
@@ -32,8 +33,8 @@ export default function Home() {
       }
 
       setResults(data.results);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'An error occurred');
     } finally {
       setIsLoading(false);
     }

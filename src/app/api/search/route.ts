@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import { Participant, ClassResult } from '@/types';
 
 const ALLOWED_CLASSES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'P', 'T'];
 const MK_ID_LIST = [
@@ -14,7 +15,7 @@ const MK_ID_LIST = [
     "EF4701"
 ];
 
-async function getClassParticipants(mkId: string, mkKelas: string, phpSessionId: string) {
+async function getClassParticipants(mkId: string, mkKelas: string, phpSessionId: string): Promise<Participant[] | null> {
     const baseUrl = "https://akademik.its.ac.id/lv_peserta.php";
     const params = {
         mkJur: "51100",
@@ -39,7 +40,7 @@ async function getClassParticipants(mkId: string, mkKelas: string, phpSessionId:
         const courseName = $('table').first().find('tr').eq(1).find('td.PageTitle').text().trim();
         
         // Get participants
-        const participants: any[] = [];
+        const participants: Participant[] = [];
         $('table.GridStyle tr').slice(1).each((_, row) => {
             const cols = $(row).find('td');
             if (cols.length >= 3) {
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
         if (!phpSessionId) {
             return NextResponse.json({ error: 'PHPSESSID cookie is required' }, { status: 400 });
         }
-        const foundClasses = [];
+        const foundClasses: ClassResult[] = [];
 
         // Search through all course IDs and allowed classes
         for (const mkId of MK_ID_LIST) {
@@ -99,10 +100,10 @@ export async function POST(request: Request) {
             results: foundClasses
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Search error:', error);
         return NextResponse.json(
-            { error: 'Failed to search classes' },
+            { error: error instanceof Error ? error.message : 'Failed to search classes' },
             { status: 500 }
         );
     }
