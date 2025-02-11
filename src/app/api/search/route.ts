@@ -17,9 +17,10 @@ const MK_ID_LIST = [
     "EF4701"
 ];
 
-// Tambahkan konstanta untuk timeout dan retry
-const REQUEST_TIMEOUT = 5000; // 5 detik
-const MAX_RETRIES = 2;
+// Ubah konstanta timeout dan retry
+const REQUEST_TIMEOUT = 10000; // Naikkan menjadi 10 detik
+const MAX_RETRIES = 3; // Naikkan retry
+const RETRY_DELAY = 2000; // Delay antar retry 2 detik
 
 async function getClassParticipants(mkId: string, mkKelas: string, phpSessionId: string): Promise<Participant[] | null> {
     const baseUrl = "https://akademik.its.ac.id/lv_peserta.php";
@@ -35,28 +36,48 @@ async function getClassParticipants(mkId: string, mkKelas: string, phpSessionId:
     let retries = 0;
     while (retries <= MAX_RETRIES) {
         try {
+            console.log(`Attempting request for ${mkId}-${mkKelas} (attempt ${retries + 1}/${MAX_RETRIES + 1})`);
+            
             const response = await axios.get(baseUrl, {
                 params,
                 headers: {
-                    Cookie: `PHPSESSID=${phpSessionId}`
+                    Cookie: `PHPSESSID=${phpSessionId}`,
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
                 },
-                timeout: REQUEST_TIMEOUT
+                timeout: REQUEST_TIMEOUT,
+                validateStatus: (status) => status === 200
             });
+
+            // Validasi response
+            if (!response.data || typeof response.data !== 'string') {
+                throw new Error('Invalid response data');
+            }
 
             const $ = cheerio.load(response.data);
             
-            // Get course name
+            // Validasi struktur HTML
+            const table = $('table.GridStyle');
+            if (table.length === 0) {
+                throw new Error('Table not found in response');
+            }
+
             const courseName = $('table').first().find('tr').eq(1).find('td.PageTitle').text().trim();
-            
-            // Optimisasi parsing dengan map alih-alih each
+            if (!courseName) {
+                throw new Error('Course name not found');
+            }
+
             const participants = $('table.GridStyle tr')
                 .slice(1)
                 .map((_, row) => {
                     const cols = $(row).find('td');
                     if (cols.length >= 3) {
+                        const nrp = $(cols[1]).text().trim();
+                        const name = $(cols[2]).text().trim();
+                        if (!nrp || !name) return null;
+                        
                         return {
-                            nrp: $(cols[1]).text().trim(),
-                            name: $(cols[2]).text().trim(),
+                            nrp,
+                            name,
                             course_name: courseName
                         };
                     }
@@ -65,14 +86,22 @@ async function getClassParticipants(mkId: string, mkKelas: string, phpSessionId:
                 .get()
                 .filter((p): p is Participant => p !== null);
 
+            console.log(`Successfully fetched ${participants.length} participants for ${mkId}-${mkKelas}`);
             return participants;
+
         } catch (error) {
             retries++;
+            console.error(`Failed attempt ${retries} for ${mkId}-${mkKelas}:`, error);
+            
             if (retries > MAX_RETRIES) {
-                console.error(`Failed after ${MAX_RETRIES} retries for ${mkId}-${mkKelas}: ${error}`);
+                console.error(`All attempts failed for ${mkId}-${mkKelas}`);
                 return null;
             }
-            await new Promise(resolve => setTimeout(resolve, 1000 * retries)); // Exponential backoff
+
+            // Exponential backoff with jitter
+            const delay = RETRY_DELAY * Math.pow(2, retries - 1) * (0.5 + Math.random() * 0.5);
+            console.log(`Waiting ${Math.round(delay)}ms before next attempt...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
         }
     }
     return null;
@@ -98,11 +127,14 @@ async function searchBatch(
   const foundClasses: ClassResult[] = [];
   
   for (const mkId of mkIds) {
+    console.log(`🔍 Searching in course ${mkId}...`);
     const classPromises = classes.map(async (kelas) => {
       const participants = await getClassParticipants(mkId, kelas, sessionId);
+      console.log(`Participants for ${mkId}-${kelas}:`, participants);
       if (participants) {
         const found = participants.find(p => p.nrp === nrp);
         if (found) {
+          console.log(`✅ Found ${nrp} in class ${mkId}-${kelas}: ${found.course_name}`);
           return {
             mk_id: mkId,
             semester: 2,
@@ -118,7 +150,6 @@ async function searchBatch(
     const results = await Promise.all(classPromises);
     const validResults = results.filter((result): result is ClassResult => result !== null);
     foundClasses.push(...validResults);
-    // Menghapus early return di sini
   }
   
   return foundClasses;
@@ -146,15 +177,21 @@ export async function POST(request: Request) {
             (_, i) => MK_ID_LIST.slice(i * chunkSize, (i + 1) * chunkSize)
         );
 
+        console.log(`🚀 Starting search for NRP: ${nrp}`);
         const allResults: ClassResult[] = [];
 
-        // Proses chunk secara sequential untuk mengurangi beban
+        let processedChunks = 0;
+        const totalChunks = mkIdChunks.length;
+
         for (const chunk of mkIdChunks) {
+            processedChunks++;
+            console.log(`⏳ Processing chunk ${processedChunks}/${totalChunks} (${chunk.join(', ')})`);
+            
             const results = await searchBatch(chunk, ALLOWED_CLASSES, nrp, sessionId);
             allResults.push(...results);
-            // Menghapus early return di sini
         }
 
+        console.log(`✨ Search completed. Found ${allResults.length} class(es)`);
         return new NextResponse(
             JSON.stringify({ results: allResults }), 
             { 
