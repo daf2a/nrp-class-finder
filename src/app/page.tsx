@@ -93,13 +93,18 @@ export default function Home() {
             <SessionInstructions />
           </div>
 
-          <button
-            onClick={handleSearch}
-            disabled={isLoading}
-            className="w-full py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
-          >
-            {isLoading ? 'Searching...' : 'Search Classes'}
-          </button>
+            <div>
+            <button
+              onClick={handleSearch}
+              disabled={isLoading}
+              className="w-full py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+            >
+              {isLoading ? 'Searching...' : 'Search Classes'}
+            </button>
+            <p className="mt-2 text-sm text-gray-600 italic text-center">
+              this search uses web scraping and may take a few moments to complete
+            </p>
+            </div>
         </div>
 
         {error && (
