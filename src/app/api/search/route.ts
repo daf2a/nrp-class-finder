@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import * as cheerio from 'cheerio';
 import { Participant, ClassResult } from '@/types';
 
@@ -53,8 +52,9 @@ async function getClassParticipants(mkId: string, mkKelas: string, phpSessionId:
         });
 
         return participants;
-    } catch (error) {
-        console.error(`Error fetching class ${mkId}-${mkKelas}:`, error);
+    } catch (err) {
+        const error = err as Error | AxiosError;
+        console.error(`Error fetching class ${mkId}-${mkKelas}:`, error.message);
         return null;
     }
 }
@@ -67,7 +67,9 @@ async function checkSession(phpSessionId: string): Promise<boolean> {
             }
         });
         return !response.data.includes('myitsauth.php');
-    } catch (error) {
+    } catch (err) {
+        const error = err as Error | AxiosError;
+        console.error('Session check error:', error.message);
         return false;
     }
 }
