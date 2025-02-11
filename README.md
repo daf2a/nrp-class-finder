@@ -15,7 +15,7 @@ A web application to find ITS classes by NRP for Informatics Departement. This t
    - Enter the NRP you want to search for
    - Paste your `PHPSESSID` into the Session ID field
    - Click "Search Classes"
-   - Wait for results to appear
+   - Wait for results to appear (take a while)
 
 
 ## Technical Details
