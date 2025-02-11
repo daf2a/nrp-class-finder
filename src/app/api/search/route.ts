@@ -37,49 +37,88 @@ async function getClassParticipants(mkId: string, mkKelas: string, phpSessionId:
     while (retries <= MAX_RETRIES) {
         try {
             console.log(`Attempting request for ${mkId}-${mkKelas} (attempt ${retries + 1}/${MAX_RETRIES + 1})`);
+            console.log(`Session id ${phpSessionId}`);
             
             const response = await axios.get(baseUrl, {
                 params,
                 headers: {
                     Cookie: `PHPSESSID=${phpSessionId}`,
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1'
                 },
                 timeout: REQUEST_TIMEOUT,
                 validateStatus: (status) => status === 200
             });
 
+            // Debug response
+            console.log(`Response status for ${mkId}-${mkKelas}:`, response.status);
+            console.log(`Response headers for ${mkId}-${mkKelas}:`, response.headers);
+            
             // Validasi response
             if (!response.data || typeof response.data !== 'string') {
+                console.error(`Invalid response data type for ${mkId}-${mkKelas}:`, typeof response.data);
                 throw new Error('Invalid response data');
             }
 
             const $ = cheerio.load(response.data);
             
-            // Validasi struktur HTML
-            const table = $('table.GridStyle');
+            // Debug HTML structure
+            console.log(`HTML structure for ${mkId}-${mkKelas}:`, {
+                tables: $('table').length,
+                gridStyleTables: $('table.GridStyle').length,
+                firstTableRows: $('table').first().find('tr').length
+            });
+
+            // Coba cari table dengan pendekatan berbeda
+            let table = $('table.GridStyle');
             if (table.length === 0) {
-                throw new Error('Table not found in response');
+                // Fallback: cari table kedua (biasanya table peserta)
+                table = $('table').eq(1);
+                if (table.length === 0) {
+                    console.error(`Table structure for ${mkId}-${mkKelas}:`, $.html());
+                    throw new Error('Table not found in response');
+                }
             }
 
-            const courseName = $('table').first().find('tr').eq(1).find('td.PageTitle').text().trim();
+            // Coba dapatkan course name dengan beberapa pendekatan
+            let courseName = '';
+            const possibleCourseNameSelectors = [
+                'td.PageTitle',
+                'td[class="PageTitle"]',
+                'td[align="left"]'
+            ];
+
+            for (const selector of possibleCourseNameSelectors) {
+                courseName = $('table').first().find('tr').eq(1).find(selector).text().trim();
+                if (courseName) break;
+            }
+
             if (!courseName) {
-                throw new Error('Course name not found');
+                courseName = `${mkId}-${mkKelas}`; // Fallback course name
             }
 
-            const participants = $('table.GridStyle tr')
+            // Parse participants dengan error handling lebih baik
+            const participants = table.find('tr')
                 .slice(1)
                 .map((_, row) => {
-                    const cols = $(row).find('td');
-                    if (cols.length >= 3) {
-                        const nrp = $(cols[1]).text().trim();
-                        const name = $(cols[2]).text().trim();
-                        if (!nrp || !name) return null;
-                        
-                        return {
-                            nrp,
-                            name,
-                            course_name: courseName
-                        };
+                    try {
+                        const cols = $(row).find('td');
+                        if (cols.length >= 3) {
+                            const nrp = $(cols[1]).text().trim();
+                            const name = $(cols[2]).text().trim();
+                            if (!nrp || !name) return null;
+                            
+                            return {
+                                nrp,
+                                name,
+                                course_name: courseName
+                            };
+                        }
+                    } catch (e) {
+                        console.error(`Error parsing row for ${mkId}-${mkKelas}:`, e);
                     }
                     return null;
                 })
