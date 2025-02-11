@@ -59,21 +59,40 @@ async function getClassParticipants(mkId: string, mkKelas: string, phpSessionId:
     }
 }
 
+async function checkSession(phpSessionId: string): Promise<boolean> {
+    try {
+        const response = await axios.get('https://akademik.its.ac.id/home.php', {
+            headers: {
+                Cookie: `PHPSESSID=${phpSessionId}`
+            }
+        });
+        return !response.data.includes('myitsauth.php');
+    } catch (error) {
+        return false;
+    }
+}
+
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { nrp } = body;
+        const { nrp, sessionId } = body;
 
         if (!nrp) {
             return NextResponse.json({ error: 'NRP is required' }, { status: 400 });
         }
 
-        const cookieHeader = await cookies();
-        const phpSessionId = cookieHeader.get('PHPSESSID')?.value;
+        // Use provided session ID or fallback to hardcoded one
+        const phpSessionId = sessionId || 'h01m0cj1d3jkse862gmv2l5pt6';
 
-        if (!phpSessionId) {
-            return NextResponse.json({ error: 'PHPSESSID cookie is required' }, { status: 400 });
+        // Verify if session is valid
+        const isValidSession = await checkSession(phpSessionId);
+        if (!isValidSession) {
+            return NextResponse.json({ 
+                error: 'Invalid or expired session. Please login to MyITS again.',
+                requireLogin: true 
+            }, { status: 401 });
         }
+
         const foundClasses: ClassResult[] = [];
 
         // Search through all course IDs and allowed classes

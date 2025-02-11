@@ -7,6 +7,21 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<ClassResult[]>([]);
   const [error, setError] = useState('');
+  const [showSessionInput, setShowSessionInput] = useState(false);
+  const [sessionId, setSessionId] = useState('');
+
+  const getCookieInstructions = () => (
+    <div className="mt-4 p-4 bg-blue-50 rounded-lg text-blue-800 border border-blue-200">
+      <p className="font-medium">How to get your session ID:</p>
+      <ol className="list-decimal ml-5 mt-2 space-y-1 text-sm">
+        <li>Login to <a href="https://akademik.its.ac.id/myitsauth.php" target="_blank" rel="noopener noreferrer" className="underline">MyITS Academic</a></li>
+        <li>After login, press F12 to open Developer Tools</li>
+        <li>Go to Application tab (Chrome) or Storage tab (Firefox)</li>
+        <li>Look for Cookies → akademik.its.ac.id</li>
+        <li>Find and copy the PHPSESSID value</li>
+      </ol>
+    </div>
+  );
 
   const handleSearch = async () => {
     if (!nrp) {
@@ -24,11 +39,17 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ nrp }),
+        body: JSON.stringify({ 
+          nrp,
+          sessionId: sessionId || undefined 
+        }),
       });
 
       const data = await response.json();
       if (!response.ok) {
+        if (data.requireLogin) {
+          setShowSessionInput(true);
+        }
         throw new Error(data.error || 'Failed to search');
       }
 
@@ -71,6 +92,20 @@ export default function Home() {
               placeholder="Enter NRP (e.g., 5025211015)"
             />
           </div>
+
+          {showSessionInput && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Session ID (PHPSESSID)</label>
+              <input
+                type="text"
+                value={sessionId}
+                onChange={(e) => setSessionId(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded bg-white text-gray-900"
+                placeholder="Enter your PHPSESSID value"
+              />
+              {getCookieInstructions()}
+            </div>
+          )}
 
           <button
             onClick={handleSearch}
