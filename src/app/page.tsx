@@ -32,20 +32,33 @@ export default function Home() {
     setResults([]);
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 295000); // 4m55s timeout
+
       const response = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nrp, sessionId }),
+        signal: controller.signal
       });
 
-      const data = await response.json();
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to search');
+        const errorData = await response.json().catch(() => ({
+          error: 'Network response was not ok'
+        }));
+        throw new Error(errorData.error || 'Failed to search');
       }
 
+      const data = await response.json();
       setResults(data.results);
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : 'An error occurred');
+      if (error instanceof Error && error.name === 'AbortError') {
+        setError('Search took too long. Please try again.');
+      } else {
+        setError(error instanceof Error ? error.message : 'An error occurred');
+      }
     } finally {
       setIsLoading(false);
     }

@@ -3,6 +3,9 @@ import axios, { AxiosError } from 'axios';
 import * as cheerio from 'cheerio';
 import { Participant, ClassResult } from '@/types';
 
+export const maxDuration = 300; // Set max duration to 300 seconds (5 minutes)
+export const dynamic = 'force-dynamic';
+
 const ALLOWED_CLASSES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'P', 'T'];
 const MK_ID_LIST = [
     "EF4403", "EF4406", "EF4401", "EF4601", "EE4101", "ER4301",
@@ -53,8 +56,10 @@ async function getClassParticipants(mkId: string, mkKelas: string, phpSessionId:
 
         return participants;
     } catch (err) {
-        const error = err as Error | AxiosError;
-        console.error(`Error fetching class ${mkId}-${mkKelas}:`, error.message);
+        const errorMessage = err instanceof AxiosError 
+            ? err.response?.data || err.message
+            : 'Unknown error';
+        console.error(`Error fetching class ${mkId}-${mkKelas}:`, errorMessage);
         return null;
     }
 }
@@ -70,17 +75,43 @@ async function checkSession(sessionId: string): Promise<boolean> {
   }
 }
 
+async function searchBatch(
+  mkIds: string[], 
+  classes: string[], 
+  nrp: string, 
+  sessionId: string
+): Promise<ClassResult[]> {
+  const foundClasses: ClassResult[] = [];
+  const promises = mkIds.map(async (mkId) => {
+    for (const kelas of classes) {
+      const participants = await getClassParticipants(mkId, kelas, sessionId);
+      if (participants) {
+        const found = participants.find(p => p.nrp === nrp);
+        if (found) {
+          foundClasses.push({
+            mk_id: mkId,
+            semester: 2,
+            kelas,
+            name: found.name,
+            course_name: found.course_name
+          });
+        }
+      }
+    }
+  });
+
+  await Promise.all(promises);
+  return foundClasses;
+}
+
 export async function POST(request: Request) {
     try {
         const { nrp, sessionId } = await request.json();
 
         if (!nrp || !sessionId) {
-            return NextResponse.json({ 
-                error: 'NRP and Session ID are required'
-            }, { status: 400 });
+            return NextResponse.json({ error: 'NRP and Session ID are required' }, { status: 400 });
         }
 
-        // Verify session
         const isValidSession = await checkSession(sessionId);
         if (!isValidSession) {
             return NextResponse.json({ 
@@ -88,37 +119,46 @@ export async function POST(request: Request) {
             }, { status: 401 });
         }
 
-        const foundClasses: ClassResult[] = [];
+        // Split MK_ID_LIST into smaller chunks
+        const chunkSize = 5;
+        const mkIdChunks = Array.from(
+            { length: Math.ceil(MK_ID_LIST.length / chunkSize) },
+            (_, i) => MK_ID_LIST.slice(i * chunkSize, (i + 1) * chunkSize)
+        );
 
-        // Search through all course IDs and allowed classes
-        for (const mkId of MK_ID_LIST) {
-            for (const kelas of ALLOWED_CLASSES) {
-                const participants = await getClassParticipants(mkId, kelas, sessionId);
-                
-                if (participants) {
-                    const found = participants.find(p => p.nrp === nrp);
-                    if (found) {
-                        foundClasses.push({
-                            mk_id: mkId,
-                            semester: 2,
-                            kelas: kelas,
-                            name: found.name,
-                            course_name: found.course_name
-                        });
-                    }
+        let allResults: ClassResult[] = [];
+
+        // Process chunks concurrently
+        const promises = mkIdChunks.map(chunk => 
+            searchBatch(chunk, ALLOWED_CLASSES, nrp, sessionId)
+        );
+
+        const results = await Promise.all(promises);
+        allResults = results.flat();
+
+        return new NextResponse(
+            JSON.stringify({ results: allResults }), 
+            { 
+                status: 200,
+                headers: {
+                    'Content-Type': 'application/json',
                 }
             }
-        }
+        );
 
-        return NextResponse.json({
-            results: foundClasses
-        });
-
-    } catch (error: unknown) {
-        console.error('Search error:', error);
-        return NextResponse.json(
-            { error: 'Failed to search classes. Please check your session ID.' },
-            { status: 500 }
+    } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        console.error('Search error:', errorMessage);
+        return new NextResponse(
+            JSON.stringify({ 
+                error: 'Failed to search classes. Please check your session ID.' 
+            }), 
+            { 
+                status: 500,
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            }
         );
     }
 }
