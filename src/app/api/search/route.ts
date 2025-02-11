@@ -3,7 +3,7 @@ import axios, { AxiosError } from 'axios';
 import * as cheerio from 'cheerio';
 import { Participant, ClassResult } from '@/types';
 
-export const maxDuration = 300; // Set max duration to 300 seconds (5 minutes)
+export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
 const ALLOWED_CLASSES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'P', 'T'];
