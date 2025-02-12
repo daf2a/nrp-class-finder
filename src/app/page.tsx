@@ -9,6 +9,7 @@ export default function Home() {
   const [results, setResults] = useState<ClassResult[]>([]);
   const [error, setError] = useState('');
   const [studentName, setStudentName] = useState(''); // tambahkan state untuk nama
+  const [searchDuration, setSearchDuration] = useState<number>(0);
 
   const SessionInstructions = () => (
     <div className="mt-4 p-4 bg-blue-50 rounded-lg text-blue-800 border border-blue-200">
@@ -22,6 +23,24 @@ export default function Home() {
     </div>
   );
 
+  const LoadingSpinner = () => (
+    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+  );
+
+  const SearchProcessInfo = () => (
+    <div className="mt-4 p-4 bg-yellow-50 rounded-lg text-yellow-800 border border-yellow-200 text-sm">
+      <p className="font-medium">Search Process Information:</p>
+      <ol className="list-decimal ml-5 mt-2 space-y-1">
+        <li>Searching through all possible classes in Informatics Department</li>
+        <li>Matching NRP with class rosters</li>
+        <li>Average search duration is below 1 minute</li>
+      </ol>
+    </div>
+  );
+
   const handleSearch = async () => {
     if (!nrp || !sessionId) {
       setError('Please enter both NRP and Session ID');
@@ -31,6 +50,7 @@ export default function Home() {
     setIsLoading(true);
     setError('');
     setResults([]);
+    const startTime = Date.now();
 
     try {
       const controller = new AbortController();
@@ -58,6 +78,8 @@ export default function Home() {
       if (data.results.length > 0) {
         setStudentName(data.results[0].name);
       }
+      setSearchDuration((Date.now() - startTime) / 1000); // Convert to seconds
+
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') {
         setError('Search took too long. Please try again.');
@@ -117,11 +139,16 @@ export default function Home() {
               disabled={isLoading}
               className="w-full py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
             >
-              {isLoading ? 'Searching...' : 'Search Classes'}
+              {isLoading ? (
+                <>
+                  <LoadingSpinner />
+                  Searching...
+                </>
+              ) : (
+                'Search Classes'
+              )}
             </button>
-            <p className="mt-2 text-sm text-gray-600 italic text-center">
-              this search uses web scraping and may take a few moments to complete
-            </p>
+            {isLoading && <SearchProcessInfo />}
             </div>
         </div>
 
@@ -130,27 +157,39 @@ export default function Home() {
             {error}
           </div>
         )}
-
-        {results.length > 0 && (
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-gray-900">
-              {studentName} enrolled {results.length} classes:
-            </h2>
-            <div className="space-y-2">
-              {results.map((result, index) => (
-                <div
-                  key={index}
-                  className="p-4 border border-gray-200 rounded bg-gray-50"
-                >
-                  <p className="font-medium text-gray-900">{result.course_name}</p>
-                  <p className="text-sm text-gray-600">
-                    Class {result.kelas} - {result.mk_id}
-                  </p>
-                </div>
-              ))}
-            </div>
+        
+        {!isLoading && searchDuration > 0 && results.length === 0 && !error && (
+          <div className="p-4 bg-yellow-50 text-yellow-700 rounded border border-yellow-200">
+            <p>This student is not enrolled in any Informatics Department classes.</p>
+            <p className="text-sm mt-1">Search completed in {searchDuration.toFixed(2)} seconds</p>
           </div>
         )}
+
+        {results.length > 0 &&             
+          <div>
+            <p className="text-sm text-gray-600">
+                Search completed in {searchDuration.toFixed(2)} seconds
+            </p>
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-gray-900">
+                {studentName} enrolled {results.length} classes:
+              </h2>
+              <div className="space-y-2">
+                {results.map((result, index) => (
+                  <div
+                    key={index}
+                    className="p-4 border border-gray-200 rounded bg-gray-50"
+                  >
+                    <p className="font-medium text-gray-900">{result.course_name}</p>
+                    <p className="text-sm text-gray-600">
+                      Class {result.kelas} - {result.mk_id}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        }
       </main>
     </div>
   );

@@ -6,7 +6,7 @@ import { Participant, ClassResult } from '@/types';
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
-const ALLOWED_CLASSES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'P', 'T'];
+const ALLOWED_CLASSES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'P', 'T', 'M00'];
 const MK_ID_LIST = [
     "EF4103", "EF4101", "SM4101", "EF4104", "EF4102", "SM4201",
     "EF4204", "EF4203", "EE4101", "EF4202", "EF4201", "EF4801",
