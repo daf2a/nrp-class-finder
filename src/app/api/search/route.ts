@@ -26,6 +26,105 @@ const MK_ID_LIST = [
     "EF4716", "EF4717", "EF4718", "EF4719", "EF4720", "EF4721"
 ];
 
+const COURSE_CREDITS: Record<string, number> = {
+    "EF4103": 3, // Aljabar Linier
+    "EF4101": 4, // Dasar Pemrograman
+    "SM4101": 3, // Kalkulus 1
+    "EF4104": 4, // Sistem Basis Data
+    "EF4102": 3, // Sistem Digital
+    "SM4201": 3, // Kalkulus 2
+    "EF4204": 3, // Komputasi Numerik
+    "EF4203": 3, // Organisasi Komputer
+    "EE4101": 2, // Pengantar Teknologi Elektro
+    "EF4202": 4, // Sistem Operasi
+    "EF4201": 4, // Struktur Data
+    "EF4801": 5, // Tugas Akhir
+    "EF4303": 4, // Jaringan Komputer
+    "EK4201": 3, // Konsep Kecerdasan Artifisial
+    "EF4307": 2, // Konsep Pengembangan Perangkat Lunak
+    "EF4305": 3, // Matematika Diskrit
+    "EF4302": 3, // Pemrograman Berorientasi Objek
+    "EF4301": 3, // Pemrograman Web
+    "EF4304": 3, // Teori Graf
+    "EF4404": 3, // Manajemen Basis Data
+    "EF4403": 2, // Otomata
+    "EF4406": 3, // Pembelajaran Mesin
+    "EF4401": 3, // Pemrograman Jaringan
+    "EF4405": 3, // Perancangan dan Analisis Algoritma
+    "ER4301": 3, // Perancangan Perangkat Lunak
+    "EF4402": 3, // Probabilitas dan Statistik
+    "EF4518": 3, // Data Mining
+    "EF4504": 3, // Grafika Komputer
+    "EF4507": 3, // Jaringan Nirkabel
+    "EF4502": 3, // Keamanan Informasi
+    "EF4512": 3, // Manajemen Proyek Perangkat Lunak
+    "EF4503": 3, // Pemodelan dan Simulasi
+    "EF4501": 3, // Pemrograman Berbasis Kerangka Kerja
+    "EF4509": 3, // Pemrograman Kompetitif
+    "EF4520": 3, // Pengantar Pengembangan Game
+    "EF4519": 3, // Pengantar Sistem Cerdas
+    "EF4521": 3, // Pengantar Teknologi Basis Data
+    "EF4517": 3, // Pengolahan Citra dan Visi Komputer
+    "EF4515": 3, // Rekayasa Kebutuhan
+    "EF4505": 3, // Rekayasa Sistem Berbasis Pengetahuan
+    "EF4510": 3, // Riset Operasi
+    "EF4513": 3, // Sistem Enterprise
+    "EF4508": 3, // Sistem Terdistribusi
+    "EF4514": 3, // Tata Kelola Teknologi Informasi
+    "EF4511": 3, // Teknik Pengembangan Game
+    "EF4506": 3, // Teknologi antar Jaringan
+    "EF4612": 3, // Animasi Komputer dan Pemodelan 3D
+    "EF4615": 3, // Audit Sistem
+    "EF4616": 3, // Basis Data Terdistribusi
+    "EF4605": 3, // Capstone Project
+    "EF4619": 3, // Deep Learning
+    "EF4614": 3, // Desain Pengalaman Pengguna
+    "EF4613": 3, // Game Edukasi dan Simulasi
+    "EF4618": 3, // Game Engine
+    "EF4602": 3, // Interaksi Manusia dan Komputer
+    "EF4607": 3, // Keamanan Aplikasi
+    "EF4606": 3, // Keamanan Jaringan
+    "EF4603": 4, // Kerja Praktik
+    "EF4604": 3, // Komputasi Bergerak
+    "EF4625": 3, // Komputasi Pervasif dan Jaringan Sensor
+    "ER4402": 3, // Konstruksi Perangkat Lunak
+    "ER4503": 3, // Kualitas Perangkat Lunak
+    "EF4608": 3, // Pemrograman Berbasis Antarmuka
+    "EF4601": 3, // Pemrograman Perangkat Bergerak
+    "EF4621": 3, // Pengantar Logika dan Pemrograman
+    "EF4620": 3, // Pengantar Proses Mining
+    "EF4610": 3, // Simulasi Berbasis Agen
+    "EF4609": 3, // Simulasi Sistem Dinamis
+    "EF4617": 3, // Sistem Informasi Geografis
+    "EF4611": 3, // Teknik Peramalan
+    "EK4501": 3, // Text Mining
+    "EF4708": 3, // Analisis Data Multivariat
+    "ER4403": 3, // Arsitektur Perangkat Lunak
+    "EF4712": 3, // Big Data
+    "EF4701": 2, // Etika Profesi
+    "ER4505": 3, // Evolusi Perangkat Lunak
+    "EF4705": 3, // Forensik Digital
+    "EF4710": 3, // Game Cerdas
+    "EF4704": 3, // Komputasi Awan
+    "EF4713": 3, // Komputasi Kuantum
+    "EF4722": 6, // Magang
+    "EF4707": 3, // Pemrograman Data Sains Terapan
+    "EF4706": 3, // Pemrograman Pengolahan Sinyal
+    "EF4702": 2, // Proposal Tugas Akhir
+    "EF4711": 3, // Realitas X
+    "EF4726": 3, // Robotika
+    "EF4709": 3, // Simulasi Berorientasi Obyek
+    "EF4703": 3, // Teknologi IoT
+    "EF4714": 3, // Topik Khusus Algoritma dan Pemrograman
+    "EF4715": 3, // Topik Khusus Arsitektur dan Jaringan Komputer
+    "EF4716": 3, // Topik Khusus Grafika, Interaksi dan Game
+    "EF4717": 3, // Topik Khusus Komputasi Berbasis Jaringan
+    "EF4718": 3, // Topik Khusus Komputasi Cerdas dan Visi
+    "EF4719": 3, // Topik Khusus Manajemen Cerdas Informasi
+    "EF4720": 3, // Topik Khusus Pemodelan dan Komputasi Terapan
+    "EF4721": 3  // Topik Khusus Rekayasa Perangkat Lunak
+};
+
 const REQUEST_TIMEOUT = 10000;
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 2000;
@@ -155,20 +254,26 @@ async function searchBatch(
             if (participants) {
                 const found = participants.find(p => p.nrp === nrp);
                 if (found) {
-                    return {
+                    const result: ClassResult = {
                         mk_id: mkId,
                         semester: 2,
                         kelas,
                         name: found.name,
-                        course_name: found.course_name
+                        course_name: found.course_name,
+                        credits: COURSE_CREDITS[mkId] || 0
                     };
+                    return result;
                 }
             }
             return null;
         });
 
         const results = await Promise.all(classPromises);
-        const validResults = results.filter((result): result is ClassResult => result !== null);
+        const validResults = results.filter((result): result is ClassResult => 
+            result !== null && 
+            typeof result === 'object' && 
+            'credits' in result
+        );
         foundClasses.push(...validResults);
     }
     

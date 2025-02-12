@@ -172,7 +172,7 @@ export default function Home() {
             </p>
             <div className="space-y-4">
               <h2 className="text-xl font-semibold text-gray-900">
-                {studentName} enrolled {results.length} classes:
+                {studentName} enrolled {results.length} classes ({results.reduce((sum, r) => sum + r.credits, 0)} SKS):
               </h2>
               <div className="space-y-2">
                 {results.map((result, index) => (
@@ -182,7 +182,7 @@ export default function Home() {
                   >
                     <p className="font-medium text-gray-900">{result.course_name}</p>
                     <p className="text-sm text-gray-600">
-                      Class {result.kelas} - {result.mk_id}
+                      Class {result.kelas} - {result.mk_id} ({result.credits} SKS)
                     </p>
                   </div>
                 ))}
